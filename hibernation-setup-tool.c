@@ -900,8 +900,26 @@ static bool try_vspawn_and_wait(const char *program, int n_args, va_list ap)
     for (int i = 1; i <= n_args; i++)
         argv[i] = va_arg(ap, char *);
 
+    char log_file[PATH_MAX];
+    snprintf(log_file, sizeof(log_file), "/tmp/%s.log", program);
+
+    int log_fd = open(log_file, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (log_fd < 0) {
+        log_info("Could not open log file %s: %s", log_file, strerror(errno));
+        free(argv);
+        return false;
+    }
+
+    // Set up file actions to redirect stdout and stderr
+    posix_spawn_file_actions_t file_actions;
+    posix_spawn_file_actions_init(&file_actions);
+    posix_spawn_file_actions_adddup2(&file_actions, log_fd, STDOUT_FILENO);
+    posix_spawn_file_actions_adddup2(&file_actions, log_fd, STDERR_FILENO);
+    posix_spawn_file_actions_addclose(&file_actions, log_fd);
     rc = posix_spawnp(&pid, program, NULL, NULL, argv, NULL);
 
+    posix_spawn_file_actions_destroy(&file_actions);
+    close(log_fd);
     free(argv);
 
     if (rc != 0) {
@@ -1186,7 +1204,7 @@ static bool update_kernel_cmdline_params_for_grub(
         fprintf(conf, "# Updated automatically by hibernation-setup-tool. Do not modify.\n");
         fprintf(conf, "add_dracutmodules+=\" resume \"");
         fclose(conf);
-        spawn_and_wait("dracut", 1, "-f");
+        spawn_and_wait("dracut", 3, "-f", "-vvv", "--debug");
     }
 
     if (has_grubby) {
