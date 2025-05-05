@@ -1192,6 +1192,7 @@ static bool update_kernel_cmdline_params_for_grub(
     if (has_grubby) {
         log_info("Using grubby to patch GRUB configuration");
         spawn_and_wait("grubby", 3, "--update-kernel=ALL", "--args", args);
+        spawn_and_wait("grubby", 2, "--info", "ALL");
     } else if (has_update_grub2 || has_grub2_mkconfig) {
         FILE *resume_cfg;
         char *old_contents = NULL;
